@@ -1,0 +1,75 @@
+import speech_recognition as sr
+import re
+import sys
+
+class KeywordDetector:
+    def __init__(self, keywords):
+        self.keywords = set(keyword.lower() for keyword in keywords)
+        self.keyword_pattern = re.compile(r'\b(' + '|'.join(re.escape(kw) for kw in self.keywords) + r')\b', re.IGNORECASE)
+
+    def detect_keywords(self, transcription):
+        return [match.group().lower() for match in self.keyword_pattern.finditer(transcription)]
+
+def listen_and_recognize(recognizer, microphone, keyword_detector):
+    print("Listening...")
+    try:
+        with microphone as source:
+            print("Adjusting for ambient noise...")
+            recognizer.adjust_for_ambient_noise(source, duration=0.5)
+            print("Listening for speech...")
+            audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
+        
+        print("Speech captured, attempting to recognize...")
+        transcription = recognizer.recognize_google(audio)
+        print(f"Transcription: {transcription}")
+        
+        detected_keywords = keyword_detector.detect_keywords(transcription)
+        if detected_keywords:
+            print(f"Keywords detected: {', '.join(detected_keywords)}")
+        return True
+    except sr.RequestError as e:
+        print(f"API error: {e}")
+    except sr.UnknownValueError:
+        print("Speech not recognized")
+    except sr.WaitTimeoutError:
+        print("Listening timed out")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        import traceback
+        traceback.print_exc()
+    return False
+
+def main():
+    print(f"Python version: {sys.version}")
+    print(f"Speech Recognition version: {sr.__version__}")
+    
+    try:
+        recognizer = sr.Recognizer()
+        print("Recognizer created successfully")
+    except Exception as e:
+        print(f"Error creating Recognizer: {e}")
+        return
+
+    try:
+        microphone = sr.Microphone()
+        print("Microphone initialized successfully")
+    except Exception as e:
+        print(f"Error initializing Microphone: {e}")
+        return
+
+    keywords = ["help", "save", "rescue", "anybody", "there", "hello", "hi"]
+    keyword_detector = KeywordDetector(keywords)
+
+    print("Starting speech recognition. Press Ctrl+C to exit.")
+    try:
+        while True:
+            listen_and_recognize(recognizer, microphone, keyword_detector)
+    except KeyboardInterrupt:
+        print("Stopping...")
+    except Exception as e:
+        print(f"An unexpected error occurred in the main loop: {e}")
+        import traceback
+        traceback.print_exc()
+
+if __name__ == "__main__":
+    main()
